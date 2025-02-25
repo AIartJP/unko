@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>うんこインベントリゲーム</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f0e1;
+            color: #5d4037;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #795548;
+            margin-bottom: 30px;
+        }
+        .game-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .panel {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .player-info {
+            flex: 1;
+            min-width: 300px;
+        }
+        .areas {
+            flex: 1;
+            min-width: 300px;
+        }
+        .inventory {
+            width: 100%;
+        }
+        .collections {
+            width: 100%;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #8d6e63;
+            transition: width 0.3s ease;
+        }
+        button {
+            background-color: #8d6e63;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #6d4c41;
+        }
+        button:disabled {
+            background-color: #d7ccc8;
+            cursor: not-allowed;
+        }
+        .poop-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #f9f5ec;
+            border-radius: 5px;
+            transition: transform 0.2s;
+        }
+        .poop-item:hover {
+            transform: translateX(5px);
+        }
+        .rarity-common { color: #757575; }
+        .rarity-rare { color: #1e88e5; }
+        .rarity-epic { color: #7b1fa2; }
+        .rarity-legendary { color: #ff6f00; }
+        .rarity-mythic { color: #d50000; }
+        .collection-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px;
+        }
+        .collection-item {
+            background-color: #f9f5ec;
+            border-radius: 5px;
+            padding: 10px;
+            text-align: center;
+            opacity: 0.6;
+        }
+        .collection-item.discovered {
+            opacity: 1;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .message-log {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 20px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .message {
+            padding: 5px 0;
+            border-bottom: 1px solid #f0e6d2;
+        }
+        .item-emoji {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        .tab {
+            padding: 8px 15px;
+            background-color: #d7ccc8;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+        }
+        .tab.active {
+            background-color: #a1887f;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        @media (max-width: 600px) {
+            .game-container {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>うんこインベントリゲーム</h1>
+    
+    <div class="game-container">
+        <div class="player-info panel">
+            <h2>プレイヤー情報</h2>
+            <div>
+                <p>名前: <span id="player-name">うんこコレクター</span></p>
+                <p>レベル: <span id="player-level">1</span></p>
+                <p>経験値: <span id="player-exp">0</span> / <span id="player-next-level">100</span></p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="exp-bar" style="width: 0%"></div>
+                </div>
+                <p>コイン: <span id="player-coins">100</span></p>
+                <p>インベントリ: <span id="inventory-used">0</span> / <span id="inventory-max">10</span></p>
+                <p>発見種類: <span id="discovered-types">0</span> / <span id="total-types">5</span></p>
+            </div>
+        </div>
+        
+        <div class="areas panel">
+            <h2>冒険エリア</h2>
+            <div>
+                <button id="area-forest">うんこの森 (Lv.1+)</button>
+                <button id="area-cave">うんこの洞窟 (Lv.5+)</button>
+                <button id="area-mountain">うんこ山 (Lv.10+)</button>
+                <button id="area-space">うんこ宇宙 (Lv.20+)</button>
+            </div>
+            
+            <div class="message-log" id="message-log">
+                <div class="message">ゲームを開始しました。冒険エリアを選んでうんこを探してみましょう！</div>
+            </div>
+        </div>
+        
+        <div class="inventory panel">
+            <div class="tabs">
+                <button class="tab active" data-target="inventory-tab">インベントリ</button>
+                <button class="tab" data-target="collections-tab">コレクション</button>
+            </div>
+            
+            <div id="inventory-tab" class="tab-content active">
+                <h2>インベントリ</h2>
+                <div id="inventory-list">
+                    <p>まだうんこを持っていません。冒険に出かけましょう！</p>
+                </div>
+            </div>
+            
+            <div id="collections-tab" class="tab-content">
+                <h2>コレクション</h2>
+                <div id="collections-grid" class="collection-grid">
+                    <!-- コレクションアイテムはJSで追加 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ゲームクラス
+        class PoopGame {
+            constructor() {
+                this.player = {
+                    name: "うんこコレクター",
+                    level: 1,
+                    exp: 0,
+                    maxInventorySize: 10,
+                    coins: 100
+                };
+                
+                this.inventory = [];
+                this.discoveredTypes = [];
+                this.collections = {};
+                this.messages = [];
+                
+                // うんこタイプの定義
+                this.poopTypes = [
+                    { id: "normal", name: "ノーマルうんこ", emoji: "💩", rarity: "common", value: 5, description: "一般的なうんこ。すべての冒険の始まり。" },
+                    { id: "gold", name: "ゴールデンうんこ", emoji: "✨💩", rarity: "rare", value: 50, description: "輝く黄金のうんこ。幸運を呼ぶと言われている。" },
+                    { id: "rainbow", name: "レインボーうんこ", emoji: "🌈💩", rarity: "epic", value: 200, description: "七色に輝くレアなうんこ。コレクターの間で大人気。" },
+                    { id: "ancient", name: "古代うんこ", emoji: "🏺💩", rarity: "legendary", value: 500, description: "何千年も前の生物のうんこの化石。歴史的価値がある。" },
+                    { id: "alien", name: "エイリアンうんこ", emoji: "👽💩", rarity: "mythic", value: 1000, description: "宇宙からの来訪者が残したミステリアスなうんこ。未知の力を秘めている。" },
+                ];
+                
+                // 冒険エリアの定義
+                this.areas = [
+                    { id: "forest", name: "うんこの森", minLevel: 1, poopChance: { normal: 0.8, gold: 0.15, rainbow: 0.04, ancient: 0.01, alien: 0 } },
+                    { id: "cave", name: "うんこの洞窟", minLevel: 5, poopChance: { normal: 0.6, gold: 0.25, rainbow: 0.1, ancient: 0.05, alien: 0 } },
+                    { id: "mountain", name: "うんこ山", minLevel: 10, poopChance: { normal: 0.4, gold: 0.3, rainbow: 0.2, ancient: 0.09, alien: 0.01 } },
+                    { id: "space", name: "うんこ宇宙", minLevel: 20, poopChance: { normal: 0.2, gold: 0.3, rainbow: 0.3, ancient: 0.15, alien: 0.05 } }
+                ];
+            }
+            
+            // うんこを見つける
+            findPoop(areaId) {
+                const area = this.areas.find(a => a.id === areaId);
+                if (!area) return null;
+                
+                if (this.player.level < area.minLevel) {
+                    return { success: false, message: `レベル${area.minLevel}以上でないと${area.name}に入れません！` };
+                }
+                
+                if (this.inventory.length >= this.player.maxInventorySize) {
+                    return { success: false, message: "インベントリがいっぱいです！うんこを売るか捨ててください。" };
+                }
+                
+                // うんこタイプの決定
+                const rand = Math.random();
+                let cumulativeChance = 0;
+                let foundType = null;
+                
+                for (const [typeId, chance] of Object.entries(area.poopChance)) {
+                    cumulativeChance += chance;
+                    if (rand <= cumulativeChance) {
+                        foundType = this.poopTypes.find(p => p.id === typeId);
+                        break;
+                    }
+                }
+                
+                if (!foundType) {
+                    return { success: false, message: "今回は何も見つかりませんでした。" };
+                }
+                
+                // 新しいうんこを生成
+                const newPoop = {
+                    id: Date.now(),
+                    typeId: foundType.id,
+                    name: foundType.name,
+                    emoji: foundType.emoji,
+                    rarity: foundType.rarity,
+                    value: foundType.value + Math.floor(Math.random() * 10), // 値段の微変動
+                    found: new Date().toLocaleString(),
+                    area: area.name
+                };
+                
+                // インベントリに追加
+                this.inventory.push(newPoop);
+                
+                // 発見したタイプを記録
+                if (!this.discoveredTypes.includes(foundType.id)) {
+                    this.discoveredTypes.push(foundType.id);
+                    this.addExp(foundType.value); // 新しいタイプ発見で経験値獲得
+                } else {
+                    this.addExp(Math.ceil(foundType.value / 10)); // 通常の経験値獲得
+                }
+                
+                return { 
+                    success: true, 
+                    message: `${area.name}で${newPoop.name}を見つけました！`, 
+                    poop: newPoop 
+                };
+            }
+            
+            // うんこを売る
+            sellPoop(poopId) {
+                const index = this.inventory.findIndex(p => p.id === parseInt(poopId));
+                if (index === -1) {
+                    return { success: false, message: "そのうんこは見つかりません。" };
+                }
+                
+                const poop = this.inventory[index];
+                this.player.coins += poop.value;
+                this.inventory.splice(index, 1);
+                
+                return { 
+                    success: true, 
+                    message: `${poop.name}を${poop.value}コインで売りました！`, 
+                    coins: this.player.coins 
+                };
+            }
+            
+            // 経験値の追加とレベルアップの処理
+            addExp(exp) {
+                this.player.exp += exp;
+                const nextLevelThreshold = this.player.level * 100;
+                
+                if (this.player.exp >= nextLevelThreshold) {
+                    this.player.level++;
+                    this.player.exp -= nextLevelThreshold;
+                    
+                    // レベルアップボーナス
+                    if (this.player.level % 5 === 0) {
+                        this.player.maxInventorySize += 5;
+                        return { 
+                            levelUp: true, 
+                            message: `レベル${this.player.level}になりました！インベントリ容量が5増加しました！` 
+                        };
+                    }
+                    
+                    return { 
+                        levelUp: true, 
+                        message: `レベル${this.player.level}になりました！` 
+                    };
+                }
+                
+                return { levelUp: false };
+            }
+            
+            // コレクションの状態を確認
+            checkCollections() {
+                let collections = {};
+                
+                for (const type of this.poopTypes) {
+                    collections[type.id] = {
+                        name: type.name,
+                        emoji: type.emoji,
+                        discovered: this.discoveredTypes.includes(type.id),
+                        description: type.description,
+                        rarity: type.rarity
+                    };
+                }
+                
+                return collections;
+            }
+            
+            // プレイヤーの状態を取得
+            getPlayerStatus() {
+                return {
+                    name: this.player.name,
+                    level: this.player.level,
+                    exp: this.player.exp,
+                    nextLevel: this.player.level * 100,
+                    expPercentage: Math.floor((this.player.exp / (this.player.level * 100)) * 100),
+                    maxInventorySize: this.player.maxInventorySize,
+                    inventoryUsed: this.inventory.length,
+                    coins: this.player.coins,
+                    discoveredTypes: this.discoveredTypes.length,
+                    totalTypes: this.poopTypes.length
+                };
+            }
+            
+            // メッセージを追加
+            addMessage(message) {
+                this.messages.unshift(message);
+                if (this.messages.length > 20) {
+                    this.messages.pop();
+                }
+            }
+        }
+
+        // ゲームのインスタンス作成
+        const game = new PoopGame();
+
+        // DOM要素
+        const playerName = document.getElementById('player-name');
+        const playerLevel = document.getElementById('player-level');
+        const playerExp = document.getElementById('player-exp');
+        const playerNextLevel = document.getElementById('player-next-level');
+        const playerCoins = document.getElementById('player-coins');
+        const expBar = document.getElementById('exp-bar');
+        const inventoryUsed = document.getElementById('inventory-used');
+        const inventoryMax = document.getElementById('inventory-max');
+        const discoveredTypes = document.getElementById('discovered-types');
+        const totalTypes = document.getElementById('total-types');
+        const messageLog = document.getElementById('message-log');
+        const inventoryList = document.getElementById('inventory-list');
+        const collectionsGrid = document.getElementById('collections-grid');
+
+        // エリアボタン
+        const areaButtons = {
+            forest: document.getElementById('area-forest'),
+            cave: document.getElementById('area-cave'),
+            mountain: document.getElementById('area-mountain'),
+            space: document.getElementById('area-space')
+        };
+
+        // タブ切り替え
+        const tabs = document.querySelectorAll('.tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // アクティブなタブを切り替え
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // タブコンテンツを切り替え
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                document.getElementById(tab.dataset.target).classList.add('active');
+            });
+        });
+
+        // プレイヤー情報の更新
+        function updatePlayerInfo() {
+            const status = game.getPlayerStatus();
+            playerName.textContent = status.name;
+            playerLevel.textContent = status.level;
+            playerExp.textContent = status.exp;
+            playerNextLevel.textContent = status.nextLevel;
+            playerCoins.textContent = status.coins;
+            expBar.style.width = `${status.expPercentage}%`;
+            inventoryUsed.textContent = status.inventoryUsed;
+            inventoryMax.textContent = status.maxInventorySize;
+            discoveredTypes.textContent = status.discoveredTypes;
+            totalTypes.textContent = status.totalTypes;
+            
+            // エリアボタンの有効/無効を更新
+            for (const area of game.areas) {
+                areaButtons[area.id].disabled = status.level < area.minLevel;
+            }
+        }
+
+        // メッセージログの更新
+        function updateMessageLog() {
+            messageLog.innerHTML = '';
+            game.messages.forEach(message => {
+                const messageElement = document.createElement('div');
+                messageElement.className = 'message';
+                messageElement.textContent = message;
+                messageLog.appendChild(messageElement);
+            });
+        }
+
+        // インベントリリストの更新
+        function updateInventory() {
+            if (game.inventory.length === 0) {
+                inventoryList.innerHTML = '<p>まだうんこを持っていません。冒険に出かけましょう！</p>';
+                return;
+            }
+            
+            inventoryList.innerHTML = '';
+            game.inventory.forEach(poop => {
+                const item = document.createElement('div');
+                item.className = `poop-item rarity-${poop.rarity}`;
+                item.innerHTML = `
+                    <div>
+                        <span class="item-emoji">${poop.emoji}</span>
+                        <strong>${poop.name}</strong> (${poop.value}コイン)
+                    </div>
+                    <div>
+                        <button class="sell-button" data-id="${poop.id}">売る</button>
+                    </div>
+                `;
+                inventoryList.appendChild(item);
+            });
+            
+            // 売るボタンにイベントリスナーを追加
+            document.querySelectorAll('.sell-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const poopId = e.target.dataset.id;
+                    const result = game.sellPoop(poopId);
+                    game.addMessage(result.message);
+                    updateAll();
+                });
+            });
+        }
+
+        // コレクションの更新
+        function updateCollections() {
+            const collections = game.checkCollections();
+            collectionsGrid.innerHTML = '';
+            
+            for (const [id, item] of Object.entries(collections)) {
+                const collectionItem = document.createElement('div');
+                collectionItem.className = `collection-item rarity-${item.rarity} ${item.discovered ? 'discovered' : ''}`;
+                
+                if (item.discovered) {
+                    collectionItem.innerHTML = `
+                        <div class="item-emoji">${item.emoji}</div>
+                        <h3>${item.name}</h3>
+                        <p>${item.description}</p>
+                    `;
+                } else {
+                    collectionItem.innerHTML = `
+                        <div class="item-emoji">❓</div>
+                        <h3>???</h3>
+                        <p>まだ発見していません</p>
+                    `;
+                }
+                
+                collectionsGrid.appendChild(collectionItem);
+            }
+        }
+
+        // 全ての表示を更新
+        function updateAll() {
+            updatePlayerInfo();
+            updateMessageLog();
+            updateInventory();
+            updateCollections();
+        }
+
+        // エリアボタンのイベントリスナー
+        for (const [areaId, button] of Object.entries(areaButtons)) {
+            button.addEventListener('click', () => {
+                const result = game.findPoop(areaId);
+                game.addMessage(result.message);
+                
+                if (result.success && result.levelUp) {
+                    game.addMessage(result.levelUp.message);
+                }
+                
+                updateAll();
+            });
+        }
+
+        // 初期表示を更新
+        updateAll();
+    </script>
+</body>
+</html>
